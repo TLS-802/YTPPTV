@@ -1,0 +1,624 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0f1622;
+    color: white;
+}
+.player-container {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    margin-bottom: 18px;
+}
+#player {
+    width: 100%;
+    height: 60vh; /* 视频播放器高度 */
+}
+.loading-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    z-index: 100;
+    flex-direction: column;
+}
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 10px;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.error-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    z-index: 100;
+    flex-direction: column;
+    text-align: center;
+    padding: 1rem;
+}
+.error-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+.episode-active {
+    background-color: #3b82f6 !important;
+    border-color: #60a5fa !important;
+    color: white !important;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
+}
+.episode-grid {
+    max-height: 30vh;
+    overflow-y: auto;
+}
+/* 恢复播放位置提示样式 */
+.position-restore-hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+    font-size: 14px;
+}
+.position-restore-hint.show {
+    transform: translateX(-50%) translateY(0);
+}
+.hint-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 46px;
+    height: 24px;
+}
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #333;
+    transition: .4s;
+    border-radius: 24px;
+}
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .slider {
+    background-color: #00ccff;
+}
+input:checked + .slider:before {
+    transform: translateX(22px);
+}
+/* 添加快捷键提示样式 */
+.shortcut-hint {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.shortcut-hint.show {
+    opacity: 1;
+}
+
+/* 原生全屏时，播放器容器铺满 */
+.player-container:-webkit-full-screen,
+.player-container:fullscreen {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 10000;
+    background-color: #000;
+}
+.player-container:-webkit-full-screen #player,
+.player-container:fullscreen #player {
+    width: 100%; height: 100%;
+}
+
+/* 新增：移动端响应式样式 */
+@media (max-width: 640px) {
+    .episode-grid {
+        max-height: 40vh; /* 移动端增加集数列表高度 */
+    }
+    
+    /* 改进移动端按钮显示 */
+    button {
+        white-space: nowrap;
+    }
+    
+    /* 控制栏在小屏幕上可能需要换行 */
+    .player-container .flex-wrap {
+        margin-bottom: 4px;
+    }
+}
+
+/* 资源信息卡片区 */
+#resourceInfoBarContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, #232a36 60%, #1c2939 100%);
+  border-radius: 16px;
+  padding: 12px 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  flex-wrap: nowrap;
+}
+.resource-info-bar-left {
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #fff;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.resource-info-bar-videos {
+  font-size: 1rem;
+  font-weight: normal;
+  margin-left: 10px;
+  color: #ccc;
+  white-space: nowrap;
+}
+.resource-switch-btn {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: #a67c2d;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: background 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+.resource-switch-btn:hover {
+  background: #f5e9d7; /* 调整悬停背景色 */
+}
+.resource-switch-btn:active {
+  background: #f5e9d7; /* 调整点击背景色 */
+}
+.resource-switch-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 0; /* 使用gap控制间距 */
+  color: #a67c2d; /* 恢复原图标颜色 */
+  vertical-align: middle;
+  transition: transform 0.3s;
+}
+
+/* 集数卡片区 */
+#episodeCardsContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); /* 允许集数卡片均匀拉伸以填充可用空间，实现左右对齐 */
+  gap: 18px;
+  margin-bottom: 18px;
+  justify-content: flex-start; /* 靠左对齐 */
+}
+.episode-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #232a36 60%, #1c2939 100%);
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+  min-height: 48px;
+  min-width: 0;
+  box-shadow: 0 2px 8px #0002;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.1s;
+  user-select: none;
+  border: 2px solid transparent;
+  position: relative;
+  z-index: 1;
+  padding: 8px 6px;
+}
+.episode-card:hover {
+  border: 2px solid #00ccff;
+  box-shadow: 0 8px 24px #00ccff44;
+  transform: translateY(-2px) scale(1.03);
+}
+.episode-card.active,
+.episode-card.active:hover,
+.episode-card[class*="bg-blue"],
+div.episode-card.active,
+#episodeCardsContainer .episode-card.active {
+  background-color: #3b82f6 !important;
+  border-color: #60a5fa !important;
+  color: white !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
+  font-weight: bold !important;
+  z-index: 2 !important;
+}
+
+/* 确保高亮文本样式能正确显示 */
+.episode-card.active .episode-label,
+.episode-card.active:hover .episode-label,
+div.episode-card.active .episode-label,
+#episodeCardsContainer .episode-card.active .episode-label {
+  -webkit-text-fill-color: #fff !important;
+  text-fill-color: #fff !important;
+  color: white !important;
+  background: none !important;
+}
+.episode-card .episode-label {
+  margin-left: 0;
+  font-size: 0.95em;
+  background: var(--ytpptv-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+  font-weight: bold;
+}
+.episode-card.active .episode-label {
+  -webkit-text-fill-color: #fff;
+  text-fill-color: #fff;
+}
+.episode-card .episode-icon {
+  margin-right: 8px;
+}
+
+/* 移动端适配 */
+@media (max-width: 600px) {
+  :root {
+    --text-level1: 1.1rem;
+    --text-level2: 1rem;
+    --text-level3: 0.9rem;
+    --text-level4: 0.85rem;
+    --text-level5: 0.75rem;
+  }
+  
+  #resourceInfoBarContainer {
+    padding: 12px;
+  }
+  
+  #episodeCardsContainer {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  
+  .episode-card {
+    font-size: var(--text-level4);
+    min-height: 38px;
+    padding: 6px 4px;
+  }
+  
+  .episode-card .episode-label {
+    font-size: 0.9em;
+  }
+  
+  .resource-modal-list {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    padding: 10px;
+    grid-gap: 8px;
+  }
+  
+  .resource-modal-item {
+    padding: 12px 5px;
+    min-height: 70px;
+  }
+  
+  .resource-modal-item span:first-child {
+    font-size: var(--text-level3);
+    -webkit-line-clamp: 1;
+  }
+  
+  .resource-modal-item span:last-child {
+    font-size: var(--text-level5);
+    margin-top: 3px;
+  }
+  
+  .resource-modal {
+    min-width: 90vw;
+    max-height: 80vh;
+    padding-bottom: 8px;
+  }
+  
+  .resource-modal-header {
+    padding: 12px 15px;
+    font-size: var(--text-level2);
+  }
+  
+  .resource-modal-close {
+    width: 28px;
+    height: 28px;
+    font-size: 1.5rem;
+  }
+  
+  .resource-info-bar-left {
+    max-width: 70%;
+  }
+  
+  .resource-switch-btn {
+    padding: 6px 10px;
+    font-size: var(--text-level4);
+  }
+}
+
+/* 资源切换弹窗样式 */
+.resource-modal-overlay {
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 99999; /* 确保在最上层 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.resource-modal {
+  background: #171b24;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  min-width: 320px;
+  max-width: 90vw;
+  width: 650px;
+  padding: 0 0 12px 0;
+  animation: fadeInModal 0.25s;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes fadeInModal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.resource-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  font-size: var(--text-level2);
+  font-weight: bold;
+  color: var(--text-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.resource-modal-close {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.resource-modal-close:hover {
+  color: #fff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.resource-modal-list {
+  padding: 15px;
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-gap: 12px;
+}
+
+.resource-modal-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 15px 5px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: rgba(25, 30, 40, 0.4);
+  font-weight: 500;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin: 0;
+  min-height: 80px;
+  position: relative;
+}
+
+.resource-modal-item:last-child {
+  border-bottom: none;
+}
+
+.resource-modal-item.active, .resource-modal-item:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.resource-modal-item span:first-child {
+  background: var(--ytpptv-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-fill-color: transparent;
+  font-weight: bold;
+  font-size: var(--text-level3);
+  margin-bottom: 5px;
+  white-space: normal;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.resource-modal-item.active span:first-child {
+  opacity: 1;
+}
+
+.resource-modal-item span:last-child {
+  color: var(--text-secondary);
+  font-size: var(--text-level5);
+  margin-top: 5px;
+}
+
+.resource-modal-item .check-icon {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.2);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+/* 统一文字层级系统 */
+:root {
+  /* 渐变色定义 */
+  --ytpptv-gradient: linear-gradient(90deg, #00ccff 0%, #ff3c78 100%);
+  
+  /* 颜色定义 */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --text-tertiary: rgba(255, 255, 255, 0.6);
+  --text-accent: #00ccff;
+  --text-highlight: #3b82f6;
+  --text-warning: #ffd700;
+  
+  /* 字体大小定义 */
+  --text-level1: 1.25rem;   /* 主标题/页面标题 */
+  --text-level2: 1.1rem;    /* 子标题/区域标题 */
+  --text-level3: 1rem;      /* 正文/按钮文字 */
+  --text-level4: 0.9rem;    /* 次要信息 */
+  --text-level5: 0.8rem;    /* 辅助信息/提示 */
+}
+
+/* 更新相关文字样式 */
+#videoTitle {
+  font-size: var(--text-level1);
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.resource-info-bar-left span:first-child {
+  font-size: var(--text-level2);
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.resource-info-bar-videos {
+  font-size: var(--text-level4);
+  color: var(--text-tertiary);
+  font-weight: normal;
+  margin-left: 10px;
+}
+
+.resource-switch-btn {
+  font-size: var(--text-level3);
+  color: var(--text-accent);
+}
+
+.episode-card {
+  font-size: var(--text-level3);
+}
+
+.episode-card .episode-label {
+  font-size: 0.95em;
+}
+
+.resource-modal-header {
+  font-size: var(--text-level2);
+  color: var(--text-primary);
+}
+
+.resource-modal-item span:first-child {
+  font-size: var(--text-level3);
+}
+
+.resource-modal-item span:last-child {
+  font-size: var(--text-level5);
+  color: var(--text-secondary);
+}
+
+#episodeInfo {
+  font-size: var(--text-level4);
+  color: var(--text-tertiary);
+}
+
+button {
+  font-size: var(--text-level3);
+}

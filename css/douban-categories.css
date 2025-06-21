@@ -1,0 +1,121 @@
+/* 豆瓣分类布局样式 */
+
+/* 水平滚动容器样式 */
+[class^="douban-"] {
+  display: flex;
+  flex-wrap: nowrap;
+  padding-bottom: 10px;
+  gap: 0.5rem;
+  overflow-x: hidden; /* 默认隐藏滚动条 */
+}
+
+/* 水平滚动容器样式 - 由JS控制添加，当内容数量≥8个时应用 */
+[class^="douban-"].scrollable {
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+/* 隐藏滚动条但保留功能 */
+[class^="douban-"]::-webkit-scrollbar {
+  height: 6px;
+}
+
+[class^="douban-"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[class^="douban-"]::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+}
+
+[class^="douban-"]::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* 修改卡片样式以适应水平滚动，固定7个一行 */
+[class^="douban-"] > div {
+  flex: 0 0 auto;
+  width: calc(100% / 7 - 8px);
+}
+
+/* 在小屏幕上减少显示数量，但保持不换行 */
+@media (max-width: 1023px) {
+  [class^="douban-"] > div {
+    width: calc(100% / 5 - 8px);
+  }
+}
+
+@media (max-width: 767px) {
+  [class^="douban-"] > div {
+    width: calc(100% / 3 - 8px);
+  }
+  
+  /* 移动端默认只显示3个，超过3个出现滑动条 */
+  [class^="douban-"] {
+    overflow-x: hidden;
+  }
+  
+  [class^="douban-"].scrollable {
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 479px) {
+  [class^="douban-"] > div {
+    width: calc(100% / 3 - 8px); /* 保持在小屏幕上也显示3个 */
+  }
+}
+
+/* 模态框内容区域滚动样式 */
+#modalItemsContainer {
+  max-height: 70vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  padding-right: 5px;
+}
+
+#modalItemsContainer::-webkit-scrollbar {
+  width: 6px;
+}
+
+#modalItemsContainer::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#modalItemsContainer::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+}
+
+#modalItemsContainer::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* 加载更多内容和无更多内容提示样式 */
+#loadingMore, #noMoreItems {
+  width: 100%;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+/* 全局加载状态样式 */
+#globalLoading {
+  z-index: 9999;
+}
+
+/* Toast提示样式 */
+#toast {
+  z-index: 9999;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* 分类模态框样式 */
+#categoryModal {
+  z-index: 1000;
+} 

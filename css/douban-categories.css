@@ -118,4 +118,74 @@
 /* 分类模态框样式 */
 #categoryModal {
   z-index: 1000;
+}
+
+/* 豆瓣分类标签样式 */
+#douban-tags {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+}
+
+#douban-tags button {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* 豆瓣卡片样式 */
+#douban-results {
+    position: relative;
+    min-height: 200px;
+}
+
+#douban-results .group {
+    margin-bottom: 3rem; /* 为标题留出空间 */
+}
+
+/* 搜索圆圈悬停效果 */
+.search-circle:hover {
+    fill: #22c55e;
+}
+
+/* 适配深色模式 */
+@media (prefers-color-scheme: dark) {
+    #douban-results .text-gray-900 {
+        color: #e5e5e5; /* 深色模式下标题颜色 */
+    }
+}
+
+/* 适配移动设备 */
+@media (max-width: 640px) {
+    #douban-results .group {
+        margin-bottom: 2.5rem;
+    }
+}
+
+/* 加载动画 */
+@keyframes pulse {
+    0% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.6;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 标签管理模态框样式 */
+#tagManageModal .delete-tag-btn {
+    transition: opacity 0.2s ease;
+}
+
+#tagManageModal .group:hover .delete-tag-btn {
+    opacity: 1 !important;
 } 

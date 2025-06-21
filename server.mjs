@@ -427,6 +427,171 @@ app.get('/api/detail', async (req, res) => {
     }
 });
 
+// 新增豆瓣API端点
+app.get('/api/douban', async (req, res) => {
+    try {
+        // 获取参数
+        const type = req.query.type;
+        const tag = req.query.tag;
+        const pageSize = parseInt(req.query.pageSize || '16');
+        const pageStart = parseInt(req.query.pageStart || '0');
+
+        // 验证参数
+        if (!type || !tag) {
+            return res.status(400).json({ 
+                code: 400, 
+                message: '缺少必要参数: type 或 tag' 
+            });
+        }
+
+        if (!['tv', 'movie'].includes(type)) {
+            return res.status(400).json({ 
+                code: 400, 
+                message: 'type 参数必须是 tv 或 movie' 
+            });
+        }
+
+        if (pageSize < 1 || pageSize > 100) {
+            return res.status(400).json({ 
+                code: 400, 
+                message: 'pageSize 必须在 1-100 之间' 
+            });
+        }
+
+        if (pageStart < 0) {
+            return res.status(400).json({ 
+                code: 400, 
+                message: 'pageStart 不能小于 0' 
+            });
+        }
+
+        if (tag === 'top250') {
+            return handleTop250(req, res, pageStart);
+        }
+
+        const target = `https://movie.douban.com/j/search_subjects?type=${type}&tag=${tag}&sort=recommend&page_limit=${pageSize}&page_start=${pageStart}`;
+
+        // 添加请求头
+        const headers = {
+            'User-Agent': config.userAgent,
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Referer': 'https://movie.douban.com/',
+            'Origin': 'https://movie.douban.com'
+        };
+
+        // 设置超时
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
+        try {
+            const response = await fetch(target, {
+                headers,
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            // 转换数据格式
+            const list = data.subjects.map((item) => ({
+                title: item.title,
+                poster: item.cover,
+            }));
+
+            const apiResponse = {
+                code: 200,
+                message: '获取成功',
+                list: list,
+            };
+
+            // 设置缓存
+            res.setHeader('Cache-Control', 'public, max-age=7200');
+            return res.json(apiResponse);
+        } catch (error) {
+            console.error('豆瓣API请求错误:', error.message);
+            throw error;
+        }
+    } catch (error) {
+        console.error('豆瓣API错误:', error.message);
+        res.status(500).json({
+            code: 500,
+            message: `获取豆瓣数据失败: ${error.message}`
+        });
+    }
+});
+
+// Top250 处理函数
+async function handleTop250(req, res, pageStart) {
+    const target = `https://movie.douban.com/top250?start=${pageStart}&filter=`;
+
+    // 直接使用 fetch 获取 HTML 页面
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
+    const fetchOptions = {
+        signal: controller.signal,
+        headers: {
+            'User-Agent': config.userAgent,
+            'Referer': 'https://movie.douban.com/',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        },
+    };
+
+    try {
+        const fetchResponse = await fetch(target, fetchOptions);
+        clearTimeout(timeoutId);
+
+        if (!fetchResponse.ok) {
+            throw new Error(`HTTP error! Status: ${fetchResponse.status}`);
+        }
+
+        // 获取 HTML 内容
+        const html = await fetchResponse.text();
+
+        // 使用正则表达式提取电影信息
+        const moviePattern = /<div class="item">[\s\S]*?<img.*?alt="([^"]*)"[\s\S]*?src="([^"]*)"[\s\S]*?<\/div>/g;
+        const movies = [];
+        let match;
+
+        while ((match = moviePattern.exec(html)) !== null) {
+            const title = match[1];
+            const cover = match[2];
+
+            // 处理图片 URL，确保使用 HTTPS
+            const processedCover = cover.replace(/^http:/, 'https:');
+
+            movies.push({
+                title: title,
+                poster: processedCover,
+            });
+        }
+
+        const apiResponse = {
+            code: 200,
+            message: '获取成功',
+            list: movies,
+        };
+
+        // 设置缓存
+        res.setHeader('Cache-Control', 'public, max-age=7200');
+        return res.json(apiResponse);
+    } catch (error) {
+        console.error('豆瓣Top250请求错误:', error.message);
+        return res.status(500).json({
+            code: 500,
+            message: `获取豆瓣 Top250 数据失败: ${error.message}`
+        });
+    }
+}
+
 app.use(express.static(path.join(__dirname), {
   maxAge: config.cacheMaxAge
 }));

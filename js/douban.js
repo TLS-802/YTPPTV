@@ -411,17 +411,8 @@ function renderRecommend(tag, pageLimit, pageStart) {
     const container = document.getElementById("douban-results");
     if (!container) return;
 
-    const loadingOverlayHTML = `
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-10">
-            <div class="flex items-center justify-center">
-                <div class="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin inline-block"></div>
-                <span class="text-pink-500 ml-4">加载中...</span>
-            </div>
-        </div>
-    `;
-
-    container.classList.add("relative");
-    container.insertAdjacentHTML('beforeend', loadingOverlayHTML);
+    // 先显示骨架屏
+    renderDoubanSkeleton(container);
     
     const target = `https://movie.douban.com/j/search_subjects?type=${doubanMovieTvCurrentSwitch}&tag=${tag}&sort=recommend&page_limit=${pageLimit}&page_start=${pageStart}`;
     
@@ -441,24 +432,111 @@ function renderRecommend(tag, pageLimit, pageStart) {
         });
 }
 
+// 渲染骨架屏
+function renderDoubanSkeleton(container) {
+    // 创建骨架屏数据
+    const skeletonCount = 16; // 与一次加载的数量一致
+    const skeletonData = Array.from({ length: skeletonCount }, (_, index) => index);
+    
+    // 创建文档片段
+    const fragment = document.createDocumentFragment();
+    
+    // 为每个骨架卡片创建HTML
+    skeletonData.forEach(() => {
+        const skeletonCard = document.createElement('div');
+        skeletonCard.className = 'w-full';
+        skeletonCard.innerHTML = `
+            <div class="group relative w-full rounded-lg bg-transparent shadow-none flex flex-col">
+                <!-- 海报骨架 - 2:3 比例 -->
+                <div class="relative aspect-[2/3] w-full overflow-hidden rounded-lg bg-gray-200 animate-pulse">
+                    <div class="absolute inset-0 bg-gray-300"></div>
+                </div>
+                
+                <!-- 信息层骨架 -->
+                <div class="absolute top-[calc(100%+0.5rem)] left-0 right-0">
+                    <div class="flex flex-col items-center justify-center">
+                        <div class="h-4 w-32 bg-gray-200 rounded animate-pulse mb-2"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        fragment.appendChild(skeletonCard);
+    });
+    
+    // 清空容器并添加骨架屏
+    container.innerHTML = '';
+    container.appendChild(fragment);
+}
+
 async function fetchDoubanData(url) {
     // 添加超时控制
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10秒超时
     
-    // 设置请求选项，包括信号和头部
-    const fetchOptions = {
-        signal: controller.signal,
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-            'Referer': 'https://movie.douban.com/',
-            'Accept': 'application/json, text/plain, */*',
-        }
-    };
-
     try {
-        // 尝试直接访问（豆瓣API可能允许部分CORS请求）
-        const response = await fetch(PROXY_URL + encodeURIComponent(url), fetchOptions);
+        // 解析URL参数
+        const urlObj = new URL(url);
+        const type = urlObj.searchParams.get('type');
+        const tag = urlObj.searchParams.get('tag');
+        const page_limit = urlObj.searchParams.get('page_limit');
+        const page_start = urlObj.searchParams.get('page_start');
+
+        // 如果是豆瓣搜索API，使用我们的代理API
+        if (url.includes('movie.douban.com/j/search_subjects')) {
+            // 构建API URL
+            const apiUrl = `/api/douban?type=${type}&tag=${tag}&pageSize=${page_limit}&pageStart=${page_start}`;
+            
+            // 请求我们的API
+            const response = await fetch(apiUrl, { signal: controller.signal });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`API请求失败: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            
+            if (data.code !== 200) {
+                throw new Error(data.message || '获取数据失败');
+            }
+            
+            // 转换数据格式以匹配原始豆瓣API
+            return {
+                subjects: data.list.map(item => ({
+                    title: item.title,
+                    cover: item.poster,
+                    rate: "暂无", // 我们的API没有返回评分
+                    url: `https://movie.douban.com/subject/${encodeURIComponent(item.title)}/` // 构造一个假的URL
+                }))
+            };
+        } else if (url.includes('movie.douban.com/j/search_tags')) {
+            // 对于标签API，仍然使用代理
+            const response = await fetch(PROXY_URL + encodeURIComponent(url), {
+                signal: controller.signal,
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                    'Referer': 'https://movie.douban.com/',
+                    'Accept': 'application/json, text/plain, */*',
+                }
+            });
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            
+            return await response.json();
+        }
+        
+        // 对于其他URL，使用原来的代理方式
+        const response = await fetch(PROXY_URL + encodeURIComponent(url), {
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                'Referer': 'https://movie.douban.com/',
+                'Accept': 'application/json, text/plain, */*',
+            }
+        });
         clearTimeout(timeoutId);
         
         if (!response.ok) {
@@ -467,7 +545,8 @@ async function fetchDoubanData(url) {
         
         return await response.json();
     } catch (err) {
-        console.error("豆瓣 API 请求失败（直接代理）：", err);
+        console.error("豆瓣 API 请求失败：", err);
+        clearTimeout(timeoutId);
         
         // 失败后尝试备用方法：作为备选
         const fallbackUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
@@ -511,7 +590,7 @@ function renderDoubanCards(data, container) {
         // 循环创建每个影视卡片
         data.subjects.forEach(item => {
             const card = document.createElement("div");
-            card.className = "bg-[#111] hover:bg-[#222] transition-all duration-300 rounded-lg overflow-hidden flex flex-col transform hover:scale-105 shadow-md hover:shadow-lg";
+            card.className = "group relative rounded-lg bg-transparent shadow-none flex flex-col cursor-pointer transform hover:scale-105 transition-all duration-300";
             
             // 生成卡片内容，确保安全显示（防止XSS）
             const safeTitle = item.title
@@ -524,37 +603,58 @@ function renderDoubanCards(data, container) {
                 .replace(/>/g, '&gt;');
             
             // 处理图片URL
-            // 1. 直接使用豆瓣图片URL (添加no-referrer属性)
             const originalCoverUrl = item.cover;
-            
-            // 2. 也准备代理URL作为备选
             const proxiedCoverUrl = PROXY_URL + encodeURIComponent(originalCoverUrl);
             
-            // 为不同设备优化卡片布局
+            // 使用类似 MoonTV 的卡片样式
             card.innerHTML = `
-                <div class="relative w-full aspect-[2/3] overflow-hidden cursor-pointer" onclick="fillAndSearchWithDouban('${safeTitle}')">
+                <div class="relative aspect-[2/3] w-full overflow-hidden rounded-md">
                     <img src="${originalCoverUrl}" alt="${safeTitle}" 
-                        class="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
+                        class="w-full h-full object-cover"
                         onerror="this.onerror=null; this.src='${proxiedCoverUrl}'; this.classList.add('object-contain');"
                         loading="lazy" referrerpolicy="no-referrer">
-                    <div class="absolute inset-0 bg-gradient-to-t from-black to-transparent opacity-60"></div>
+                    
+                    <!-- Hover 效果 -->
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                        <div class="absolute inset-0 flex items-center justify-center">
+                            <div class="transition-all duration-200 hover:scale-110">
+                                <svg width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" class="block">
+                                    <circle cx="22" cy="22" r="20" stroke="white" stroke-width="1.5" fill="none" class="search-circle"></circle>
+                                    <g>
+                                        <foreignObject x="12" y="12" width="20" height="20">
+                                            <div style="display: flex; justify-content: center; align-items: center; width: 100%; height: 100%;">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-7 w-7 text-white">
+                                                    <circle cx="11" cy="11" r="8"></circle>
+                                                    <path d="m21 21-4.3-4.3"></path>
+                                                </svg>
+                                            </div>
+                                        </foreignObject>
+                                    </g>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 评分标签 -->
                     <div class="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-sm">
                         <span class="text-yellow-400">★</span> ${safeRate}
                     </div>
-                    <div class="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-sm hover:bg-[#333] transition-colors">
-                        <a href="${item.url}" target="_blank" rel="noopener noreferrer" title="在豆瓣查看" onclick="event.stopPropagation();">
-                            🔗
-                        </a>
+                </div>
+                
+                <!-- 标题 -->
+                <div class="absolute top-[calc(100%+0.2rem)] left-0 right-0">
+                    <div class="flex flex-col items-center justify-center">
+                        <span class="text-gray-900 font-semibold truncate w-full text-center">
+                            ${safeTitle}
+                        </span>
                     </div>
                 </div>
-                <div class="p-2 text-center bg-[#111]">
-                    <button onclick="fillAndSearchWithDouban('${safeTitle}')" 
-                            class="text-sm font-medium text-white truncate w-full hover:text-pink-400 transition"
-                            title="${safeTitle}">
-                        ${safeTitle}
-                    </button>
-                </div>
             `;
+            
+            // 添加点击事件
+            card.addEventListener('click', () => {
+                fillAndSearchWithDouban(safeTitle);
+            });
             
             fragment.appendChild(card);
         });
